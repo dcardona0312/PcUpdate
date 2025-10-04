@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth'; // Eliminamos signInAnonymously de aquí
-import { auth } from './firebase.ts'; // Importamos el servicio de auth
+import { auth } from './firebase'; // Importamos el servicio de auth
 
 // 1. Definir la interfaz para el contexto
 interface AuthContextType {

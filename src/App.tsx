@@ -1,5 +1,5 @@
 import React from 'react';
-import { Redirect, Route } from 'react-router-dom';
+import { Redirect, Route, Switch } from 'react-router-dom';
 import {
   IonApp,
   IonIcon,
@@ -9,13 +9,13 @@ import {
   IonTabButton,
   IonTabs,
   setupIonicReact,
-  IonLoading, 
+  IonLoading,
 } from '@ionic/react';
 import { IonReactRouter } from '@ionic/react-router';
 import { square, triangle, lockClosed } from 'ionicons/icons';
 
 // Importación de las Pestañas
-import Tab1 from './pages/Tab1'; // Auth/Login
+import Tab1 from './pages/Tab1'; // Auth/Login/Profile
 import Tab2 from './pages/Tab2'; // Tareas (Firestore)
 import Tab3 from './pages/Tab3'; // Archivos (Storage)
 
@@ -24,7 +24,17 @@ import { AuthProvider, useAuth } from './AuthContext';
 
 /* Core CSS required for Ionic components to work properly */
 import '@ionic/react/css/core.css';
-// ... (Otros imports de CSS)
+/* Basic CSS for apps built with Ionic */
+import '@ionic/react/css/normalize.css';
+import '@ionic/react/css/structure.css';
+import '@ionic/react/css/typography.css';
+/* Optional CSS utils that can be commented out */
+import '@ionic/react/css/padding.css';
+import '@ionic/react/css/float-elements.css';
+import '@ionic/react/css/text-alignment.css';
+import '@ionic/react/css/text-transformation.css';
+import '@ionic/react/css/flex-utils.css';
+import '@ionic/react/css/display.css';
 
 /* Theme variables */
 import './theme/variables.css';
@@ -32,26 +42,25 @@ import './theme/variables.css';
 setupIonicReact();
 
 /**
- * Componente Wrapper para manejar las rutas protegidas y la navegación por pestañas.
- * Este componente SOLO se renderiza si el usuario está autenticado.
+ * Define las rutas de las pestañas que SÍ llevan la barra inferior.
+ * Se renderiza SIEMPRE. La redirección protege el contenido.
  */
-const AuthenticatedTabs: React.FC = () => (
+const TabsRouter: React.FC = () => (
   <IonTabs>
-    {/* Contenido de las pestañas */}
     <IonRouterOutlet>
-      {/* Route de redirección por defecto: si el usuario va a /tabs, lo mandamos a /tabs/tab2 */}
-      <Route exact path="/tabs">
-        <Redirect to="/tabs/tab2" />
-      </Route>
-      {/* La Pestaña 1 (Auth) se convierte en la pantalla de Perfil/Logout cuando está logueado */}
+      {/* Redirección por defecto: /tabs -> /tabs/tab2 (Tareas) */}
+      <Route exact path="/tabs" render={() => <Redirect to="/tabs/tab2" />} />
+
+      {/* Rutas internas de las pestañas */}
       <Route exact path="/tabs/tab1" component={Tab1} />
-      {/* Pestaña de Tareas (Protegida) */}
       <Route exact path="/tabs/tab2" component={Tab2} />
-      {/* Pestaña de Archivos (Protegida) */}
-      <Route path="/tabs/tab3" component={Tab3} />
+      <Route exact path="/tabs/tab3" component={Tab3} />
+
+      {/* Si se intenta acceder a una ruta desconocida dentro de /tabs, redirecciona a Tab2 */}
+      <Route render={() => <Redirect to="/tabs/tab2" />} />
     </IonRouterOutlet>
 
-    {/* Barra de Navegación Inferior (IonTabBar) */}
+    {/* Barra de Navegación Inferior (Visible solo aquí) */}
     <IonTabBar slot="bottom">
       <IonTabButton tab="tab1" href="/tabs/tab1">
         <IonIcon icon={lockClosed} />
@@ -70,34 +79,54 @@ const AuthenticatedTabs: React.FC = () => (
 );
 
 /**
- * Componente que decide si mostrar Login, Carga o Tabs.
+ * Define la ruta para el Login/Registro, que NO lleva la barra inferior.
  */
-const LoginOrTabs: React.FC = () => {
+const AuthRouter: React.FC = () => (
+  <IonRouterOutlet>
+    {/* La Pestaña 1 se usa como pantalla de Login/Registro */}
+    <Route exact path="/auth" component={Tab1} />
+    {/* Cualquier otra ruta no conocida o la raíz, redirige al Login */}
+    <Route render={() => <Redirect to="/auth" />} />
+  </IonRouterOutlet>
+);
+
+/**
+ * Componente que maneja la lógica de autenticación y las redirecciones de alto nivel.
+ */
+const RootRouter: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
 
+  if (isLoading) {
+    return (
+      <IonLoading isOpen={true} message="Cargando autenticación..." spinner="crescent" />
+    );
+  }
+
   return (
-    <IonReactRouter>
-      <IonRouterOutlet>
-        {/* Pantalla de carga mientras AuthContext inicializa Firebase */}
-        <IonLoading isOpen={isLoading} message="Cargando autenticación..." spinner="crescent" />
-        
-        {/* La lógica de redirección forzosa se maneja aquí */}
-        {isAuthenticated ? (
-          <>
-            {/* Si está autenticado, siempre puede acceder a las pestañas y redirigir a /tabs */}
-            <Route path="/tabs" component={AuthenticatedTabs} />
-            <Redirect exact from="/" to="/tabs" />
-            <Route render={() => <Redirect to="/tabs" />} />
-          </>
-        ) : (
-          <>
-            {/* Si NO está autenticado, solo puede acceder al Login (Tab1) en la raíz */}
-            <Route exact path="/" component={Tab1} />
-            <Route render={() => <Redirect to="/" />} />
-          </>
-        )}
-      </IonRouterOutlet>
-    </IonReactRouter>
+    <Switch>
+      {/* 1. La ruta /tabs siempre existe, la protección se hace con redirección:
+          Si está logueado, se queda en /tabs. Si no, lo mandamos a /auth. */}
+      <Route path="/tabs" render={() => (
+        isAuthenticated ? <TabsRouter /> : <Redirect to="/auth" />
+      )} />
+
+      {/* 2. Ruta de Login/Auth: Solo para no autenticados */}
+      <Route path="/auth" render={() => (
+        isAuthenticated ? <Redirect to="/tabs" /> : <AuthRouter />
+      )} />
+
+      {/* 3. Redirección de la raíz / */}
+      <Route 
+        exact 
+        path="/" 
+        render={() => (
+          isAuthenticated ? <Redirect to="/tabs" /> : <Redirect to="/auth" />
+        )} 
+      />
+      
+      {/* 4. Ruta fallback para cualquier cosa que falle */}
+      <Route render={() => <Redirect to="/auth" />} />
+    </Switch>
   );
 };
 
@@ -109,11 +138,12 @@ const App: React.FC = () => {
   return (
     <IonApp>
       <AuthProvider>
-        <LoginOrTabs />
+        <IonReactRouter>
+          <RootRouter />
+        </IonReactRouter>
       </AuthProvider>
     </IonApp>
   );
 };
 
 export default App;
-
