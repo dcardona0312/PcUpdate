@@ -17,6 +17,9 @@ import { mailOutline, lockClosedOutline, logInOutline, personAddOutline, alertCi
 import { useAuth } from '../AuthContext';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 
+// Importa los estilos visuales desde el archivo CSS
+import './Tab1.css';
+
 // Asegúrate que esta ruta a la imagen es correcta después de copiarla a la carpeta 'public/'
 const LOGO_URL = "/PCUPDATE.jpg";
 
@@ -206,104 +209,6 @@ const Tab1: React.FC = () => {
           </div>
         </div>
       </IonContent>
-      {/* Bloque de estilos para lograr el diseño para móvil */}
-      <style>{`
-        /* 1. Contenedor principal de la página (IonContent) */
-        .auth-content-container {
-            --background: #fff; /* Fondo blanco */
-            --padding-top: 0;
-            --padding-bottom: 0;
-            --padding-start: 0;
-            --padding-end: 0;
-            padding: 0; /* Aseguramos que el IonContent no tenga padding */
-        }
-        
-        /* 2. CONTENEDOR DE CENTRADO ABSOLUTO (LA SOLUCIÓN) */
-        .full-center-container {
-            display: flex;
-            flex-direction: column;
-            justify-content: center; /* Centrado Vertical */
-            align-items: center; /* Centrado Horizontal */
-            width: 100%;
-            height: 100%;
-            padding: 0 20px; /* Padding para evitar que el formulario toque los bordes */
-        }
-
-        /* 3. Contenedor del Formulario (Ancho Máximo) */
-        .auth-form-container {
-            width: 100%;
-            max-width: 450px; 
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-
-        /* 4. Estilo del Logo */
-        .auth-logo {
-            max-width: 150px;
-            height: auto;
-            margin-bottom: 20px;
-            background-color: transparent; 
-        }
-
-        /* 5. Estilo de la Tarjeta del Formulario */
-        .auth-card {
-            width: 100%;
-            box-shadow: none; 
-            border: 1px solid #ddd;
-        }
-
-        /* 6. Estilo de los Botones Principales (Negros y Grandes) */
-        .primary-button {
-            --background: #000; 
-            --color: #fff; 
-            --border-radius: 20px; 
-            text-transform: uppercase;
-        }
-
-        .large-button {
-            height: 45px;
-            font-weight: bold;
-        }
-
-        /* 7. ALINEACIÓN FINAL DE LOS INPUTS */
-        
-        /* 7a. Espacio entre la etiqueta y el campo */
-        .input-label-spacing {
-            display: block; /* La etiqueta debe ser un bloque para ocupar su propio espacio */
-            margin-top: 15px; /* Más separación superior */
-            margin-bottom: 5px; 
-            font-weight: 500;
-            color: #4b4b4b; /* Color de texto más oscuro para la etiqueta */
-            padding-left: 2px; /* Pequeño ajuste para alinear con el borde del input */
-        }
-        
-        /* 7b. Anulamos el padding interno de Ionic para controlar el centrado del input */
-        .auth-input-item {
-            --min-height: 48px;
-            --padding-start: 0;
-            --inner-padding-end: 0;
-        }
-
-        .auth-input-item::part(native) {
-            padding-top: 0;
-            padding-bottom: 0;
-            min-height: 48px; 
-            align-items: center; 
-        }
-
-        /* 7c. Centrado del texto dentro del Input */
-        ion-input {
-            --padding-top: 0; 
-            --padding-bottom: 0; 
-            --padding-start: 0; 
-        }
-
-        /* Quitar líneas inferiores de los ítems */
-        ion-item {
-            --border-width: 0 0 1px 0 !important;
-        }
-      `}</style>
     </IonPage>
   );
 };
