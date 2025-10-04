@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "422263020988",
+    "project_id": "infopc-ff6ab",
+    "storage_bucket": "infopc-ff6ab.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:422263020988:android:164e238be77922a374dfb9",
+        "android_client_info": {
+          "package_name": "io.ionic.starter"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBnsGdIabMQFfWr0KRq5ndJmPE3wkFAAzU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:422263020988:android:e52c319c088ca9be74dfb9",
+        "android_client_info": {
+          "package_name": "pc.update_v1_com"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBnsGdIabMQFfWr0KRq5ndJmPE3wkFAAzU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

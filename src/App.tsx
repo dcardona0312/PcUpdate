@@ -1,3 +1,4 @@
+import React from 'react';
 import { Redirect, Route } from 'react-router-dom';
 import {
   IonApp,
@@ -7,81 +8,112 @@ import {
   IonTabBar,
   IonTabButton,
   IonTabs,
-  setupIonicReact
+  setupIonicReact,
+  IonLoading, 
 } from '@ionic/react';
 import { IonReactRouter } from '@ionic/react-router';
-import { ellipse, square, triangle } from 'ionicons/icons';
-import Tab1 from './pages/Tab1';
-import Tab2 from './pages/Tab2';
-import Tab3 from './pages/Tab3';
+import { square, triangle, lockClosed } from 'ionicons/icons';
+
+// Importación de las Pestañas
+import Tab1 from './pages/Tab1'; // Auth/Login
+import Tab2 from './pages/Tab2'; // Tareas (Firestore)
+import Tab3 from './pages/Tab3'; // Archivos (Storage)
+
+// Autenticación
+import { AuthProvider, useAuth } from './AuthContext';
 
 /* Core CSS required for Ionic components to work properly */
 import '@ionic/react/css/core.css';
-
-/* Basic CSS for apps built with Ionic */
-import '@ionic/react/css/normalize.css';
-import '@ionic/react/css/structure.css';
-import '@ionic/react/css/typography.css';
-
-/* Optional CSS utils that can be commented out */
-import '@ionic/react/css/padding.css';
-import '@ionic/react/css/float-elements.css';
-import '@ionic/react/css/text-alignment.css';
-import '@ionic/react/css/text-transformation.css';
-import '@ionic/react/css/flex-utils.css';
-import '@ionic/react/css/display.css';
-
-/**
- * Ionic Dark Mode
- * -----------------------------------------------------
- * For more info, please see:
- * https://ionicframework.com/docs/theming/dark-mode
- */
-
-/* import '@ionic/react/css/palettes/dark.always.css'; */
-/* import '@ionic/react/css/palettes/dark.class.css'; */
-import '@ionic/react/css/palettes/dark.system.css';
+// ... (Otros imports de CSS)
 
 /* Theme variables */
 import './theme/variables.css';
 
 setupIonicReact();
 
-const App: React.FC = () => (
-  <IonApp>
-    <IonReactRouter>
-      <IonTabs>
-        <IonRouterOutlet>
-          <Route exact path="/tab1">
-            <Tab1 />
-          </Route>
-          <Route exact path="/tab2">
-            <Tab2 />
-          </Route>
-          <Route path="/tab3">
-            <Tab3 />
-          </Route>
-          <Route exact path="/">
-            <Redirect to="/tab1" />
-          </Route>
-        </IonRouterOutlet>
-        <IonTabBar slot="bottom">
-          <IonTabButton tab="tab1" href="/tab1">
-            <IonIcon aria-hidden="true" icon={triangle} />
-            <IonLabel>Tab 1</IonLabel>
-          </IonTabButton>
-          <IonTabButton tab="tab2" href="/tab2">
-            <IonIcon aria-hidden="true" icon={ellipse} />
-            <IonLabel>Tab 2</IonLabel>
-          </IonTabButton>
-          <IonTabButton tab="tab3" href="/tab3">
-            <IonIcon aria-hidden="true" icon={square} />
-            <IonLabel>Tab 3</IonLabel>
-          </IonTabButton>
-        </IonTabBar>
-      </IonTabs>
-    </IonReactRouter>
-  </IonApp>
+/**
+ * Componente Wrapper para manejar las rutas protegidas y la navegación por pestañas.
+ * Este componente SOLO se renderiza si el usuario está autenticado.
+ */
+const AuthenticatedTabs: React.FC = () => (
+  <IonTabs>
+    {/* Contenido de las pestañas */}
+    <IonRouterOutlet>
+      {/* Route de redirección por defecto: si el usuario va a /tabs, lo mandamos a /tabs/tab2 */}
+      <Route exact path="/tabs">
+        <Redirect to="/tabs/tab2" />
+      </Route>
+      {/* La Pestaña 1 (Auth) se convierte en la pantalla de Perfil/Logout cuando está logueado */}
+      <Route exact path="/tabs/tab1" component={Tab1} />
+      {/* Pestaña de Tareas (Protegida) */}
+      <Route exact path="/tabs/tab2" component={Tab2} />
+      {/* Pestaña de Archivos (Protegida) */}
+      <Route path="/tabs/tab3" component={Tab3} />
+    </IonRouterOutlet>
+
+    {/* Barra de Navegación Inferior (IonTabBar) */}
+    <IonTabBar slot="bottom">
+      <IonTabButton tab="tab1" href="/tabs/tab1">
+        <IonIcon icon={lockClosed} />
+        <IonLabel>Auth</IonLabel>
+      </IonTabButton>
+      <IonTabButton tab="tab2" href="/tabs/tab2">
+        <IonIcon icon={square} />
+        <IonLabel>Tareas</IonLabel>
+      </IonTabButton>
+      <IonTabButton tab="tab3" href="/tabs/tab3">
+        <IonIcon icon={triangle} />
+        <IonLabel>Archivos</IonLabel>
+      </IonTabButton>
+    </IonTabBar>
+  </IonTabs>
 );
 
+/**
+ * Componente que decide si mostrar Login, Carga o Tabs.
+ */
+const LoginOrTabs: React.FC = () => {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  return (
+    <IonReactRouter>
+      <IonRouterOutlet>
+        {/* Pantalla de carga mientras AuthContext inicializa Firebase */}
+        <IonLoading isOpen={isLoading} message="Cargando autenticación..." spinner="crescent" />
+        
+        {/* La lógica de redirección forzosa se maneja aquí */}
+        {isAuthenticated ? (
+          <>
+            {/* Si está autenticado, siempre puede acceder a las pestañas y redirigir a /tabs */}
+            <Route path="/tabs" component={AuthenticatedTabs} />
+            <Redirect exact from="/" to="/tabs" />
+            <Route render={() => <Redirect to="/tabs" />} />
+          </>
+        ) : (
+          <>
+            {/* Si NO está autenticado, solo puede acceder al Login (Tab1) en la raíz */}
+            <Route exact path="/" component={Tab1} />
+            <Route render={() => <Redirect to="/" />} />
+          </>
+        )}
+      </IonRouterOutlet>
+    </IonReactRouter>
+  );
+};
+
+
+/**
+ * Componente Principal de la Aplicación
+ */
+const App: React.FC = () => {
+  return (
+    <IonApp>
+      <AuthProvider>
+        <LoginOrTabs />
+      </AuthProvider>
+    </IonApp>
+  );
+};
+
 export default App;
+
