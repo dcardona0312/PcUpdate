@@ -124,7 +124,7 @@ const Tab1: React.FC = () => {
   // Vista de Login/Registro (cuando el usuario NO está logueado)
   return (
     <IonPage>
-      {/* 🚨 El IonHeader fue quitado para lograr la pantalla completa de login */}
+      {/* El IonHeader fue quitado para lograr la pantalla completa de login */}
       <IonContent fullscreen className="auth-content-container">
         {/* NUEVO CONTENEDOR FLEX: Centrado Absoluto */}
         <div className="full-center-container">
