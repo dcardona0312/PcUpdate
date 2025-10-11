@@ -12,7 +12,7 @@ import {
   IonLoading,
 } from '@ionic/react';
 import { IonReactRouter } from '@ionic/react-router';
-import { square, triangle, lockClosed } from 'ionicons/icons';
+import { square, triangle, lockClosed, list, compass, playCircle, bookSharp, camera, laptop, person } from 'ionicons/icons';
 
 // Importación de las Pestañas
 import Tab1 from './pages/Tab1'; // Auth/Login/Profile
@@ -60,39 +60,32 @@ const TabsRouter: React.FC = () => (
       <Route render={() => <Redirect to="/tabs/tab2" />} />
     </IonRouterOutlet>
 
-    {/* Barra de Navegación Inferior (Visible solo aquí) */}
+    
     <IonTabBar slot="bottom">
       <IonTabButton tab="tab1" href="/tabs/tab1">
-        <IonIcon icon={lockClosed} />
-        <IonLabel>Auth</IonLabel>
+        <IonIcon icon={person} />
+        <IonLabel>PERFIL</IonLabel>
       </IonTabButton>
       <IonTabButton tab="tab2" href="/tabs/tab2">
-        <IonIcon icon={square} />
-        <IonLabel>Tareas</IonLabel>
+        <IonIcon icon={camera} />
+        <IonLabel>ESCANEAR</IonLabel>
       </IonTabButton>
       <IonTabButton tab="tab3" href="/tabs/tab3">
-        <IonIcon icon={triangle} />
-        <IonLabel>Archivos</IonLabel>
+        <IonIcon icon={laptop} />
+        <IonLabel>EQUIPOS</IonLabel>
       </IonTabButton>
     </IonTabBar>
   </IonTabs>
 );
 
-/**
- * Define la ruta para el Login/Registro, que NO lleva la barra inferior.
- */
 const AuthRouter: React.FC = () => (
   <IonRouterOutlet>
-    {/* La Pestaña 1 se usa como pantalla de Login/Registro */}
     <Route exact path="/auth" component={Tab1} />
-    {/* Cualquier otra ruta no conocida o la raíz, redirige al Login */}
+    
     <Route render={() => <Redirect to="/auth" />} />
   </IonRouterOutlet>
 );
 
-/**
- * Componente que maneja la lógica de autenticación y las redirecciones de alto nivel.
- */
 const RootRouter: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
 
@@ -104,18 +97,14 @@ const RootRouter: React.FC = () => {
 
   return (
     <Switch>
-      {/* 1. La ruta /tabs siempre existe, la protección se hace con redirección:
-          Si está logueado, se queda en /tabs. Si no, lo mandamos a /auth. */}
       <Route path="/tabs" render={() => (
         isAuthenticated ? <TabsRouter /> : <Redirect to="/auth" />
       )} />
 
-      {/* 2. Ruta de Login/Auth: Solo para no autenticados */}
       <Route path="/auth" render={() => (
         isAuthenticated ? <Redirect to="/tabs" /> : <AuthRouter />
       )} />
 
-      {/* 3. Redirección de la raíz / */}
       <Route 
         exact 
         path="/" 
@@ -124,16 +113,12 @@ const RootRouter: React.FC = () => {
         )} 
       />
       
-      {/* 4. Ruta fallback para cualquier cosa que falle */}
       <Route render={() => <Redirect to="/auth" />} />
     </Switch>
   );
 };
 
 
-/**
- * Componente Principal de la Aplicación
- */
 const App: React.FC = () => {
   return (
     <IonApp>
