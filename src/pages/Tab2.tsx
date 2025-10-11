@@ -1,160 +1,255 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  IonContent, 
-  IonHeader, 
-  IonPage, 
-  IonTitle, 
-  IonToolbar, 
-  IonList, 
-  IonItem, 
-  IonLabel, 
-  IonInput, 
-  IonButton, 
+import React, { useState, useRef, useEffect } from 'react'; 
+import {
+  IonContent,
+  IonHeader,
+  IonPage,
+  IonTitle,
+  IonToolbar,
+  IonGrid,
+  IonRow,
+  IonCol,
+  IonButton,
   IonIcon,
-  IonFab,
-  IonFabButton,
-  IonText
+  IonText,
+  IonCard,
+  IonCardContent,
+  useIonToast,
+  IonButtons,
 } from '@ionic/react';
-import { add, trash } from 'ionicons/icons';
+import { listOutline, cameraOutline, logOutOutline, lockClosed, closeOutline } from 'ionicons/icons'; 
 
-// Importa el servicio de base de datos (db) y las funciones de Firestore
-// RUTA CORREGIDA: Apuntando a '../firebase'
-import { db } from '../firebase'; 
-import { collection, onSnapshot, addDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore'; 
+// Importamos el archivo de estilos
+import './Tab2.css'; 
+import { useAuth } from '../AuthContext';
 
-interface Tarea {
-  id: string;
-  texto: string;
-  timestamp: any; // Usaremos 'any' para la compatibilidad con el objeto Timestamp de Firestore
-}
+const APP_NAME = "PcUpdate";
+// URL de tu logo
+const LOGO_URL = "/PCUPDATE.jpg"; 
 
-const TareaListPage: React.FC = () => {
-    const [nuevaTarea, setNuevaTarea] = useState('');
-    const [tareas, setTareas] = useState<Tarea[]>([]);
-    const [cargando, setCargando] = useState(true);
+const Tab2: React.FC = () => {
+  // Asegúrate de que useAuth incluya handleLogout (asumimos que lo tiene por Tab1)
+  const { isAuthenticated, user, handleLogout } = useAuth();
+  const [presentToast] = useIonToast();
+  const [isScanning, setIsScanning] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
-    // 1. OBTENER DATOS EN TIEMPO REAL (onSnapshot)
-    useEffect(() => {
-        // Referencia a la colección 'tareas'
-        const tareasRef = collection(db, 'tareas');
+  // Efecto para gestionar el acceso a la cámara
+  useEffect(() => {
+    // Función para iniciar la cámara
+    const startCamera = async () => {
+      if (!isScanning) return; 
+      
+      try {
+        // Detener stream anterior si existe
+        stopCamera();
+
+        // Solicitar acceso a la cámara trasera (preferentemente)
+        const constraints: MediaStreamConstraints = {
+          video: { 
+            facingMode: 'environment', // Preferir la cámara trasera (en móviles)
+          },
+        };
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
         
-        // Consulta para ordenar por fecha de creación (timestamp)
-        // Nota: Firestore requiere un índice para consultas con orderBy
-        const q = query(tareasRef, orderBy('timestamp', 'desc'));
+        streamRef.current = stream; // Guardar la referencia del stream
         
-        // onSnapshot escucha los cambios en tiempo real
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const tareasData: Tarea[] = [];
-            snapshot.forEach((doc) => {
-                tareasData.push({
-                    id: doc.id,
-                    texto: doc.data().texto,
-                    timestamp: doc.data().timestamp // Guardamos el timestamp para ordenar
-                });
-            });
-            setTareas(tareasData);
-            setCargando(false);
-        }, (error) => {
-            console.error("Error al escuchar Firestore:", error);
-            // Reemplazando alert() por un mensaje en consola
-            console.log("Error al cargar tareas. Revisa la consola.");
-            setCargando(false);
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play();
+        }
+      } catch (err) {
+        console.error("Error al acceder a la cámara:", err);
+        presentToast({
+          message: 'Error al acceder a la cámara. Asegúrate de tener permisos.',
+          duration: 3000,
+          color: 'danger'
         });
-
-        // La función de limpieza se ejecuta cuando el componente se desmonta
-        return () => unsubscribe();
-    }, []);
-
-    // 2. AÑADIR NUEVA TAREA (addDoc)
-    const handleAddTarea = async () => {
-        if (nuevaTarea.trim() === '') return;
-
-        try {
-            // Añade un nuevo documento a la colección 'tareas'
-            await addDoc(collection(db, 'tareas'), {
-                texto: nuevaTarea.trim(),
-                timestamp: new Date() // Agrega la fecha actual para ordenar
-            });
-            setNuevaTarea('');
-        } catch (error) {
-            console.error("Error al añadir documento:", error);
-            // Reemplazando alert() por un mensaje en consola
-            console.log("Error al añadir la tarea. Revisa la consola.");
-        }
+        setIsScanning(false); // Regresar al menú si falla
+      }
     };
 
-    // 3. ELIMINAR TAREA (deleteDoc)
-    const handleDeleteTarea = async (id: string) => {
-        try {
-            // Referencia al documento específico por su ID
-            const tareaDocRef = doc(db, 'tareas', id);
-            // Elimina el documento
-            await deleteDoc(tareaDocRef);
-        } catch (error) {
-            console.error("Error al eliminar documento:", error);
-            // Reemplazando alert() por un mensaje en consola
-            console.log("Error al eliminar la tarea. Revisa la consola.");
-        }
+    // Función para detener la cámara
+    const stopCamera = () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
     };
 
+    if (isScanning) {
+      startCamera();
+    } else {
+      stopCamera();
+    }
+
+    // Limpieza al desmontar o al cambiar el estado
+    return () => {
+      stopCamera();
+    };
+  }, [isScanning]); 
+
+  const handleAction = (message: string) => {
+    presentToast({
+      message: message,
+      duration: 1500,
+      color: 'dark'
+    });
+  };
+  
+  const handleScanClick = () => {
+    setIsScanning(true);
+  };
+  
+  const handleStopScan = () => {
+    setIsScanning(false);
+  };
+
+  // --- Vista de Acceso Restringido ---
+  if (!isAuthenticated) {
     return (
-        <IonPage>
-            <IonHeader>
-                <IonToolbar>
-                    <IonTitle>Tareas - Firestore</IonTitle>
-                </IonToolbar>
-            </IonHeader>
-            <IonContent fullscreen>
-                
-                <IonItem lines="full" className="ion-padding-top">
-                    <IonInput
-                        placeholder="Escribe una nueva tarea"
-                        value={nuevaTarea}
-                        onIonChange={(e) => setNuevaTarea(e.detail.value!)}
-                        onKeyPress={(e) => {
-                            if (e.key === 'Enter') handleAddTarea();
-                        }}
-                    />
-                    <IonButton slot="end" onClick={handleAddTarea}>
-                        <IonIcon icon={add} />
-                    </IonButton>
-                </IonItem>
-
-                {cargando && 
-                    <IonItem>
-                        <IonLabel>Cargando tareas...</IonLabel>
-                    </IonItem>
-                }
-
-                {!cargando && tareas.length === 0 &&
-                    <div className="ion-text-center ion-padding-top">
-                        <IonText color="medium">
-                           <p>¡No hay tareas pendientes! Añade una arriba.</p>
-                        </IonText>
-                    </div>
-                }
-
-                <IonList>
-                    {tareas.map((tarea) => (
-                        <IonItem key={tarea.id} lines="full">
-                            <IonLabel className="ion-text-wrap">
-                                <h2>{tarea.texto}</h2>
-                                <p>ID: {tarea.id.substring(0, 8)}...</p>
-                            </IonLabel>
-                            <IonButton 
-                                slot="end" 
-                                color="danger" 
-                                fill="clear"
-                                onClick={() => handleDeleteTarea(tarea.id)}
-                            >
-                                <IonIcon icon={trash} />
-                            </IonButton>
-                        </IonItem>
-                    ))}
-                </IonList>
-            </IonContent>
-        </IonPage>
+      <IonPage>
+        <IonHeader>
+          <IonToolbar color="light">
+            <IonTitle>Tareas</IonTitle>
+          </IonToolbar>
+        </IonHeader>
+        <IonContent fullscreen className="ion-padding ion-text-center">
+          <IonGrid className="tab2-content-wrapper"> {/* Usamos la clase de centrado en el Grid */}
+            <IonRow className="ion-justify-content-center ion-align-items-center">
+              <IonCol size="12" size-md="6" size-lg="4">
+                <IonIcon icon={lockClosed} style={{ fontSize: '72px' }} color="medium" />
+                <IonText color="dark">
+                  <h2 className="ion-padding-top">Acceso Restringido</h2>
+                </IonText>
+                <p>Por favor, inicia sesión en la pestaña **Auth** para acceder a tus tareas.</p>
+              </IonCol>
+            </IonRow>
+          </IonGrid>
+        </IonContent>
+      </IonPage>
     );
+  }
+
+  // --- Vista de Escáner (Cámara) ---
+  if (isScanning) {
+    return (
+      <IonPage>
+        <IonHeader>
+          <IonToolbar color="dark"> {/* Toolbar oscura para la vista de escáner */}
+            <IonButtons slot="start">
+              <IonButton onClick={handleStopScan} color="light">
+                <IonIcon icon={closeOutline} />
+              </IonButton>
+            </IonButtons>
+            <IonTitle>Escáner de Código</IonTitle>
+          </IonToolbar>
+        </IonHeader>
+        <IonContent fullscreen className="ion-padding-0 ion-text-center">
+          <div className="scanner-container">
+            {/* Elemento de video para mostrar el stream de la cámara */}
+            <video 
+              ref={videoRef} 
+              autoPlay 
+              playsInline 
+              muted 
+              className="scanner-video"
+            />
+            
+            {/* Overlay para el área de escaneo (simulación de enfoque) */}
+            <div className="scanner-overlay">
+                <IonText color="light">
+                    <p>Enfoca el código QR</p>
+                </IonText>
+            </div>
+            
+            {/* Mensaje de estado (opcional) */}
+            {!videoRef.current?.srcObject && (
+               <div className="scanner-loading-message">
+                   <IonText color="light">
+                       <h3>Cargando Cámara...</h3>
+                   </IonText>
+               </div>
+            )}
+            
+          </div>
+        </IonContent>
+      </IonPage>
+    );
+  }
+
+  // --- Vista de Menú Principal (Autenticado) ---
+  return (
+    <IonPage>
+      <IonHeader>
+        <IonToolbar color="light">
+          <IonTitle>Tareas / Principal</IonTitle>
+        </IonToolbar>
+      </IonHeader>
+      {/* CRÍTICO: Aplicamos clases de flexbox directamente al IonContent 
+        para forzar el centrado vertical y horizontal 
+      */}
+      <IonContent fullscreen className="ion-padding ion-text-center ion-justify-content-center ion-align-items-center ion-flex">
+        {/* Usamos el Grid solo para limitar el ancho en pantallas grandes */}
+        <IonGrid style={{ width: '100%', maxWidth: '400px' }}>
+          <IonRow className="ion-align-items-center ion-justify-content-center">
+            <IonCol size="12">
+              <IonCard className="ion-no-margin tab2-menu-card">
+                <IonCardContent className="ion-text-center">
+                  
+                  {/* Logo/Nombre */}
+                  <div className="ion-text-center ion-padding-bottom">
+                     <img src={LOGO_URL} alt="Logo PcUpdate" style={{ maxWidth: '150px', margin: '10px 0', filter: 'grayscale(100%)' }} /> 
+                  </div>
+
+                  {/* 1. VER LISTADO */}
+                  <IonButton 
+                    expand="block" 
+                    color="dark" 
+                    className="ion-text-wrap tab2-main-button"
+                    onClick={() => handleAction("Navegando a la Lista de Tareas (Próximamente con Firestore)")}
+                  >
+                    <IonIcon slot="start" icon={listOutline} />
+                    VER LISTADO
+                  </IonButton>
+
+                  {/* 2. ESCANEAR */}
+                  <IonButton 
+                    expand="block" 
+                    color="dark" 
+                    className="ion-text-wrap tab2-main-button"
+                    onClick={handleScanClick} 
+                  >
+                    <IonIcon slot="start" icon={cameraOutline} />
+                    ESCANEAR
+                  </IonButton>
+
+                  {/* 3. SALIR (Cerrar Sesión) */}
+                  <IonButton 
+                    expand="block" 
+                    color="dark" // Usamos dark para seguir el monocromático
+                    className="ion-text-wrap tab2-main-button"
+                    onClick={() => handleLogout()} // Asumimos que SALIR es cerrar sesión
+                  >
+                    <IonIcon slot="start" icon={logOutOutline} />
+                    SALIR
+                  </IonButton>
+                  
+                </IonCardContent>
+              </IonCard>
+              
+              <div className="ion-text-center ion-padding-top">
+                <IonText color="medium">
+                  <p>Sesión iniciada como: {user?.email}</p>
+                </IonText>
+              </div>
+
+            </IonCol>
+          </IonRow>
+        </IonGrid>
+      </IonContent>
+    </IonPage>
+  );
 };
 
-export default TareaListPage;
+export default Tab2;

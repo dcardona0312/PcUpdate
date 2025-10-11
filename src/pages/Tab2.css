@@ -1,0 +1,76 @@
+/* Estilos globales para la página de Tareas (Tab2) */
+
+/* Contenedor principal para centrado vertical y horizontal */
+.tab2-content-wrapper {
+  /* CRÍTICO: Asegura que el contenedor tome toda la altura disponible */
+  height: 100%;
+  display: flex;
+  flex-direction: column; /* Asegura que el contenido fluya verticalmente */
+  align-items: center; /* Centrado horizontal */
+  justify-content: center; /* Centrado vertical */
+}
+
+/* Estilo específico para la tarjeta de menú */
+.tab2-menu-card {
+    /* Eliminamos el padding vertical para controlar el espaciado desde el CardContent */
+    padding: 0;
+    /* Añadimos un margen uniforme para que no toque los bordes en pantallas grandes */
+    margin: 10px;
+    border-radius: 12px;
+}
+
+/* Estilo para el contenido de la tarjeta para agregar padding interno */
+.tab2-menu-card ion-card-content {
+    padding-top: 20px;
+    padding-bottom: 20px;
+}
+
+/* Estilo para los botones grandes de menú */
+.tab2-main-button {
+    height: 60px;
+    border-radius: 30px;
+    /* Asegurar que el texto sea claro sobre el fondo oscuro del botón */
+    --color: #fff;
+    /* Espaciado entre botones */
+    margin-top: 15px;
+    margin-bottom: 15px;
+}
+
+/* Estilos específicos para la vista de escáner */
+.scanner-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background-color: #000;
+}
+
+.scanner-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.scanner-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80%;
+  height: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  /* Sombra para oscurecer el área circundante y simular el enfoque */
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.7);
+  border-radius: 10px;
+  pointer-events: none; /* Ignorar clics en el overlay */
+}
+
+.scanner-loading-message {
+    position: absolute; 
+    top: 50%; 
+    left: 50%; 
+    transform: translate(-50%, -50%);
+}
+
+.scanner-overlay p {
+    margin-top: 20px;
+}
