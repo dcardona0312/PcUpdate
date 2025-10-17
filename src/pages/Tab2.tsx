@@ -1,358 +1,289 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react'; 
+import React, { useState } from 'react';
 import {
   IonContent,
   IonHeader,
   IonPage,
   IonTitle,
   IonToolbar,
-  IonGrid,
-  IonRow,
-  IonCol,
   IonButton,
   IonIcon,
+  useIonRouter,
   IonText,
-  IonCard,
-  IonCardContent,
-  useIonToast,
-  IonButtons,
-  IonSpinner,
+  IonAlert,
+  useIonViewWillEnter,
+  IonList,  
+  IonItem,  
+  IonLabel, 
 } from '@ionic/react';
-import { listOutline, cameraOutline, logOutOutline, lockClosed, closeOutline, checkmarkCircleOutline } from 'ionicons/icons'; 
-
-// Importamos el archivo de estilos
+// Importamos los íconos necesarios
+import { camera, stopCircleOutline, navigate } from 'ionicons/icons'; 
+import { BarcodeScanner } from '@capacitor-community/barcode-scanner'; 
 import './Tab2.css'; 
-import { useAuth } from '../AuthContext';
 
-import { collection, addDoc, serverTimestamp, getFirestore } from 'firebase/firestore';
-import { initializeApp } from 'firebase/app'; 
-
-const APP_NAME = "PcUpdate";
-const LOGO_URL = "/PCUPDATE.jpg"; 
-
-// --- INICIALIZACIÓN DE FIREBASE (Para el guardado futuro) ---
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-
-let firestoreDb: any = null;
-
-try {
-    const app = initializeApp(firebaseConfig);
-    firestoreDb = getFirestore(app);
-} catch (e: any) {
-    if (e.code && e.code.includes('already-exists')) {
-        firestoreDb = getFirestore();
-    } else {
-        console.error("Error durante la inicialización de Firebase:", e);
-    }
-}
-const db = firestoreDb;
-// ---------------------------------------------------------------
-
-
+// Componente de la Pestaña 2: Vista de Escaneo de la Cámara (Minimalista)
 const Tab2: React.FC = () => {
-  const { isAuthenticated, user, handleLogout } = useAuth();
-  const [presentToast] = useIonToast();
-  const [isScanning, setIsScanning] = useState(false);
-  const [isSaving, setIsSaving] = useState(false); 
+  const router = useIonRouter();
+  const [scanActive, setScanActive] = useState(false);
+  const [cameraPermission, setCameraPermission] = useState<'granted' | 'denied' | 'prompt' | 'prompt-with-rationale'>('prompt');
+  const [showAlert, setShowAlert] = useState(false); 
+  const [message, setMessage] = useState(''); 
+  // ESTADO CRÍTICO: Almacena el dato leído para mostrarlo y activar el botón
+  const [scannedSerial, setScannedSerial] = useState<string | null>(null); 
+  const [messageColor, setMessageColor] = useState<'medium' | 'success' | 'danger'>('medium');
 
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  
-  const userId = user?.uid || 'anonymous';
-  
-  // Función para detener la cámara (usada en el cleanup y al parar el escaneo)
-  const stopCamera = useCallback(() => {
-    if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-        streamRef.current = null;
+  // CRÍTICO: Limpiar el entorno al salir de la vista
+  useIonViewWillEnter(() => {
+    // Limpiamos el estado del escáner si está activo
+    if (scanActive) {
+      stopScan();
     }
-  }, []);
-  
-  // Función que se llama al detectar un código (simulación de éxito)
-  const handleScanSuccess = useCallback(async (data: string) => {
+    // Reiniciamos los estados clave al volver a la pestaña
+    setMessage('');
+    setMessageColor('medium');
+    setScannedSerial(null); // MUY IMPORTANTE: Limpiar el serial escaneado
+  });
+
+  // Función para pedir y verificar permisos de la cámara
+  const checkPermission = async () => {
+    try {
+      let status = await BarcodeScanner.checkPermission({ force: false });
+      setCameraPermission(status.camera);
       
-      // 1. Detener la cámara inmediatamente
-      stopCamera();
+      if (status.granted) return true;
       
-      setIsSaving(true); // Indica que estamos procesando/guardando
-      
-      try {
-          if (user && db) {
-              const collectionPath = `artifacts/${appId}/users/${userId}/scanned_items`;
-              await addDoc(collection(db, collectionPath), {
-                  data: data,
-                  scannedAt: serverTimestamp(),
-                  userId: userId,
-              });
-              console.log("Document successfully written.");
-              
-              presentToast({
-                  message: `¡Escaneo exitoso y guardado! Código: ${data.substring(0, 15)}...`,
-                  duration: 3000,
-                  color: 'success',
-                  icon: checkmarkCircleOutline
-              });
-          } else {
-              
-              presentToast({
-                  message: `¡Escaneo exitoso! Código: ${data.substring(0, 15)}...`,
-                  duration: 3000,
-                  color: 'success',
-                  icon: checkmarkCircleOutline
-              });
-          }
-      } catch (e) {
-          console.error("Error adding document: ", e);
-          presentToast({ message: 'Escaneo exitoso, pero falló al guardar en la nube.', duration: 4000, color: 'warning' });
-      } finally {
-          setIsSaving(false);
-          setIsScanning(false); 
+      if (status.denied || status.prompt || status.promptWithRationale) {
+        status = await BarcodeScanner.checkPermission({ force: true });
+        setCameraPermission(status.camera);
+        return status.granted;
       }
-  }, [user, presentToast, appId, userId, stopCamera, db]);
+      return false;
+      
+    } catch (e) {
+      console.error("Error al verificar/pedir permisos de cámara:", e);
+      setMessage('Error de cámara. Intenta de nuevo.');
+      setMessageColor('danger');
+      return false;
+    }
+  };
+
+  // Función para detener el escaneo
+  const stopScan = () => {
+    BarcodeScanner.showBackground();
+    BarcodeScanner.stopScan();
+    document.body.classList.remove('scanner-active');
+    setScanActive(false); 
+    console.log('--- Escaneo Detenido y Limpiado ---');
+  };
 
 
-  // Efecto para gestionar el acceso a la cámara y el escaneo simulado
-  useEffect(() => {
+  // Función para iniciar el escaneo de código de barras
+  const startScan = async () => {
+    // Limpiar estados antes de escanear
+    setMessage('');
+    setMessageColor('medium');
+    setScannedSerial(null);
+
+    const permissionGranted = await checkPermission();
+
+    if (!permissionGranted) {
+      if (cameraPermission === 'denied') {
+        setShowAlert(true);
+      }
+      return;
+    }
+
+    setScanActive(true);
+    document.body.classList.add('scanner-active');
+    BarcodeScanner.hideBackground();
     
-    // Función para iniciar la cámara (TU CÓDIGO ORIGINAL QUE FUNCIONA)
-    const startCamera = async () => {
-      if (!isScanning) return; 
-      
-      // Detener cualquier timeout pendiente al iniciar
-      let mockScanTimeout: NodeJS.Timeout | null = null;
-      
-      try {
-        // Detener stream anterior si existe
-        stopCamera();
+    let result = null;
 
-        // Solicitar acceso a la cámara trasera (preferentemente)
-        const constraints: MediaStreamConstraints = {
-          video: { 
-            facingMode: 'environment', // Preferir la cámara trasera (en móviles)
-          },
-        };
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    try {
+      result = await BarcodeScanner.startScan();
+      
+      // Detener escaneo y limpiar UI primero
+      stopScan(); 
+      
+      console.log('Resultado Completo del Escaneo:', result);
+
+      if (result.hasContent && result.content) { 
+        const serial = result.content;
         
-        streamRef.current = stream; // Guardar la referencia del stream
+        // 1. Almacenar el dato para mostrarlo y activar el botón
+        setScannedSerial(serial); 
+        setMessage('Serial capturado exitosamente. Presiona CONTINUAR para registrar.');
+        setMessageColor('success');
         
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play();
-        }
+        console.log('Escaneo Exitoso. Serial Capturado:', serial);
         
-        
-        return () => {
-          if (mockScanTimeout) clearTimeout(mockScanTimeout);
-        };
-        
-      } catch (err) {
-        console.error("Error al acceder a la cámara:", err);
-        let errorMessage = 'Error al acceder a la cámara. Asegúrate de tener permisos.';
-        if (err instanceof Error && (err.name === 'NotAllowedError' || err.message.includes('permission'))) {
-             errorMessage = 'Permiso de cámara denegado. Debes permitir el acceso en la configuración del navegador.';
-        }
-        
-        presentToast({
-          message: errorMessage,
-          duration: 4000,
-          color: 'danger'
+      } else if (result.hasContent === false) {
+        console.log('Escaneo cancelado por el usuario o sin contenido.');
+        setMessage('Escaneo cancelado por el usuario. Vuelve a intentarlo.');
+        setMessageColor('medium');
+      } else {
+        console.error('Fallo en la lectura del código de barras. El plugin devolvió un resultado inesperado:', result);
+        setMessage('Error al leer el código. Intenta de nuevo.');
+        setMessageColor('danger');
+      }
+      
+    } catch (e) {
+      console.error('Error durante el escaneo:', e);
+      setMessage('Ocurrió un error inesperado durante el escaneo.');
+      setMessageColor('danger');
+      stopScan();
+    }
+  };
+  
+  // FUNCIÓN: Manejar la navegación a Tab3 una vez que el dato está listo
+  const handleContinue = (serialToRegister: string) => {
+    setMessage(`Navegando para registrar el serial: ${serialToRegister.substring(0, 20)}...`);
+    
+    // NAVEGACIÓN RETARDADA (Mejora la fiabilidad de la navegación)
+    setTimeout(() => {
+        router.push('/tab3', 'forward', 'push', { 
+            state: { 
+                scannedSerial: serialToRegister, 
+                timestamp: Date.now() 
+            } 
         });
-        setIsScanning(false); // Regresar al menú si falla
-      }
-      return () => {}; // Retorna una función de limpieza
-    };
+        // Limpiamos la data después de iniciar la navegación
+        setScannedSerial(null);
+        setMessage('');
+        setMessageColor('medium');
 
-
-    if (isScanning) {
-      // Iniciar la cámara y el timeout de escaneo simulado
-      const cleanupFn = startCamera();
-      // Aseguramos que el cleanup del useEffect lo limpie
-      return cleanupFn; 
-    } else {
-      // Detener la cámara al salir del modo escaneo
-      stopCamera();
-    }
-
-    
-    return () => {
-      stopCamera();
-    };
-  }, [isScanning, stopCamera, presentToast, handleScanSuccess]); 
-
-
-  const handleAction = (message: string) => {
-    presentToast({
-      message: message,
-      duration: 1500,
-      color: 'dark'
-    });
+    }, 150); 
   };
-  
-  const handleScanClick = () => {
-    setIsScanning(true);
-  };
-  
-  // handleStopScan usa useCallback y stopCamera()
-  const handleStopScan = useCallback(() => {
-    console.log("handleStopScan llamado: Deteniendo cámara y volviendo al menú."); // LOG PARA DEPURACIÓN
-    // Llama a la función de limpieza de cámara y actualiza el estado
-    stopCamera();
-    setIsScanning(false);
-  }, [stopCamera]);
 
-  // --- Vista de Acceso Restringido ---
-  if (!isAuthenticated) {
+
+  // --- Renderización del Escáner Activo ---
+  if (scanActive) {
     return (
       <IonPage>
-        <IonHeader>
-          <IonToolbar color="light">
-            <IonTitle>Tareas</IonTitle>
-          </IonToolbar>
-        </IonHeader>
-        <IonContent fullscreen className="ion-padding ion-text-center">
-          <IonGrid className="tab2-content-wrapper"> 
-            <IonRow className="ion-justify-content-center ion-align-items-center">
-              <IonCol size="12" size-md="6" size-lg="4">
-                <IonIcon icon={lockClosed} style={{ fontSize: '72px' }} color="medium" />
-                <IonText color="dark">
-                  <h2 className="ion-padding-top">Acceso Restringido</h2>
-                </IonText>
-                <p>Por favor, inicia sesión en la pestaña **Auth** para acceder a tus tareas.</p>
-              </IonCol>
-            </IonRow>
-          </IonGrid>
-        </IonContent>
-      </IonPage>
-    );
-  }
-
-  // --- Vista de Escáner (Cámara ACTIVA) ---
-  if (isScanning) {
-    const isCameraActive = !!videoRef.current?.srcObject;
-    
-    return (
-      <IonPage>
-        <IonHeader>
-          <IonToolbar color="dark"> 
-            <IonButtons slot="start">
-              {/* Botón para detener la cámara y volver al menú */}
-              <IonButton onClick={handleStopScan} color="light" disabled={isSaving}>
-                <IonIcon icon={closeOutline} />
-              </IonButton>
-            </IonButtons>
-            <IonTitle>{isSaving ? 'Procesando...' : 'Escáner de Código'}</IonTitle>
-          </IonToolbar>
-        </IonHeader>
-        <IonContent fullscreen className="ion-padding-0 ion-text-center">
-          <div className="scanner-container">
-            {/* Elemento de video para mostrar el stream de la cámara */}
-            <video 
-              ref={videoRef} 
-              autoPlay 
-              playsInline 
-              muted 
-              className="scanner-video"
-            />
-            
-            {/* Overlay para el área de escaneo */}
-            <div className="scanner-overlay">
-                <IonText color="light">
-                    <p>{isSaving ? 'Guardando datos...' : 'La cámara está activa. Pulsa X para salir.'}</p>
-                </IonText>
-            </div>
-            
-            {/* Indicador de estado */}
-            {(!isCameraActive || isSaving) && (
-               <div className="scanner-loading-message">
-                   <IonText color="light">
-                       {isSaving ? (
-                           <>
-                               <IonSpinner name="dots" color="light" />
-                               <h3>Procesando Escaneo...</h3>
-                           </>
-                       ) : (
-                           <>
-                             <IonSpinner name="dots" color="light" />
-                             <h3>Cargando Cámara...</h3>
-                           </>
-                       )}
-                   </IonText>
-               </div>
-            )}
-            
-            {/* Botón de PRUEBA: Simular un escaneo exitoso manualmente */}
-            {!isSaving && isCameraActive && (
-                 <div className="ion-padding-vertical" style={{position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)', zIndex: 100}}>
-                    <IonButton 
-                        color="success" 
-                        onClick={() => handleScanSuccess(`CODIGO_MANUAL_${Date.now()}`)}
-                    >
-                        <IonIcon icon={checkmarkCircleOutline} slot="start" />
-                        Simular Escaneo Exitoso
-                    </IonButton>
-                 </div>
-            )}
-            
+        <div className="scanner-container">
+          {/* El video de la cámara se renderiza detrás del WebView */}
+          <div className="scanner-overlay">
+            <IonText color="light" className="scanner-loading-message ion-text-center">
+                <h2>Escaneando Código...</h2>
+                <p>Apunta la cámara a un código de barras o QR.</p>
+            </IonText>
           </div>
-        </IonContent>
+          <IonButton 
+            expand="block" 
+            color="danger" 
+            onClick={stopScan} 
+            // Posicionamiento en la parte inferior de la pantalla para detener el escaneo
+            style={{ position: 'fixed', bottom: '20px', left: '20px', right: '20px', zIndex: 1000 }}
+          >
+            <IonIcon icon={stopCircleOutline} slot="start" />
+            DETENER ESCANEO
+          </IonButton>
+        </div>
       </IonPage>
     );
   }
 
-  // --- Vista de Menú Principal (Autenticado) ---
+  // --- Renderización del Menú Principal (Escáner Inactivo) ---
   return (
     <IonPage>
       <IonHeader>
-        <IonToolbar color="light">
-          <IonTitle>Tareas / Principal</IonTitle>
+        <IonToolbar>
+          <IonTitle>Escáner de Seriales</IonTitle>
         </IonToolbar>
       </IonHeader>
-      <IonContent fullscreen className="ion-padding ion-text-center ion-justify-content-center ion-align-items-center ion-flex">
-        <IonGrid style={{ width: '100%', maxWidth: '400px' }}>
-          <IonRow className="ion-align-items-center ion-justify-content-center">
-            <IonCol size="12">
-              <IonCard className="ion-no-margin tab2-menu-card">
-                <IonCardContent className="ion-text-center">
-                  
-                  {/* Logo/Nombre */}
-                  <div className="ion-text-center ion-padding-bottom">
-                     <img src={LOGO_URL} alt="Logo PcUpdate" style={{ maxWidth: '150px', margin: '10px 0', filter: 'grayscale(100%)' }} /> 
-                  </div>
-
-                  {/* 1. VER LISTADO */}
-                  <IonButton 
-                    expand="block" 
-                    color="dark" 
-                    className="ion-text-wrap tab2-main-button"
-                    onClick={() => handleAction("Navegando a la Lista de Tareas (Próximamente con Firestore)")}
-                  >
-                    <IonIcon slot="start" icon={listOutline} />
-                    VER LISTADO
-                  </IonButton>
-
-                  {/* 2. ESCANEAR QR / BARRA */}
-                  <IonButton 
-                    expand="block" 
-                    color="dark" 
-                    className="ion-text-wrap tab2-main-button"
-                    onClick={handleScanClick} 
-                  >
-                    <IonIcon slot="start" icon={cameraOutline} />
-                    ESCANEAR
-                  </IonButton>
-                  
-                </IonCardContent>
-              </IonCard>
+      <IonContent fullscreen className="ion-padding">
+        
+        <div style={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          justifyContent: 'flex-start', 
+          alignItems: 'center', 
+          height: '100%', 
+          paddingTop: '60px', 
+          textAlign: 'center' 
+        }}>
+          
+          <div style={{ maxWidth: '400px', width: '100%', padding: '20px' }}>
               
-              <div className="ion-text-center ion-padding-top">
-                <IonText color="medium">
-                  <p>Sesión iniciada como: {user?.email}</p>
+            {/* 1. SECCIÓN DE ESCANEO POR CÁMARA */}
+            <h2 style={{ fontSize: '1.2em', fontWeight: 'bold', marginBottom: '10px' }}>
+              Captura Rápida de Seriales
+            </h2>
+
+            <p style={{ color: '#555', marginBottom: '20px' }}>
+              Usa la cámara para escanear el serial de una etiqueta de código de barras o QR.
+            </p>
+
+            <IonButton 
+              expand="full" 
+              color="dark" 
+              onClick={startScan} 
+              // Deshabilitar si ya se escaneó un serial y estamos esperando la confirmación
+              disabled={!!scannedSerial} 
+              style={{ height: '55px', fontWeight: 'bold', marginBottom: '20px' }}
+            >
+              <IonIcon icon={camera} slot="start" />
+              {scannedSerial ? 'SERIAL CAPTURADO' : 'EMPEZAR ESCANEO'}
+            </IonButton>
+            
+            {/* VISTA DEL DATO ESCANEADO */}
+            {scannedSerial && (
+              <div 
+                style={{ 
+                  marginTop: '15px', 
+                  marginBottom: '25px',
+                  padding: '15px', 
+                  backgroundColor: '#e6ffe6', // Fondo verde claro de éxito
+                  borderRadius: '8px',
+                  border: '1px solid #4CAF50',
+                  textAlign: 'left',
+                  wordBreak: 'break-all'
+                }}
+              >
+                <IonText color="dark">
+                  <p style={{ fontWeight: 'bold', margin: '0 0 5px 0', fontSize: '0.9em' }}>Dato Capturado Correctamente:</p>
+                  <p style={{ margin: 0, fontSize: '1.1em' }}>{scannedSerial}</p>
                 </IonText>
               </div>
+            )}
+            
+            {/* BOTÓN: CONTINUAR (Activado solo si hay un serial escaneado) */}
+            {scannedSerial && (
+                <IonButton 
+                  expand="full" 
+                  color="tertiary" // Color distintivo
+                  onClick={() => handleContinue(scannedSerial)} 
+                  style={{ height: '55px', fontWeight: 'bold', marginBottom: '40px' }}
+                >
+                  <IonIcon icon={navigate} slot="start" />
+                  CONTINUAR Y REGISTRAR SERIAL
+                </IonButton>
+            )}
+            
+          </div>
+          
+          {/* Mensaje de error/guía */}
+          {message && (
+            <IonText color={messageColor} className="ion-text-center ion-padding-top">
+                <p>{message}</p>
+            </IonText>
+          )}
 
-            </IonCol>
-          </IonRow>
-        </IonGrid>
+        </div>
+
+        {/* Alerta para guiar al usuario cuando el permiso es denegado permanentemente */}
+        <IonAlert
+          isOpen={showAlert}
+          onDidDismiss={() => setShowAlert(false)}
+          header={'Permiso Requerido'}
+          message={'Para usar el escáner de cámara, debes otorgar el permiso. Ve a la configuración de tu dispositivo y habilita el acceso a la cámara para esta aplicación.'}
+          buttons={[
+            {
+              text: 'Entendido',
+              role: 'cancel',
+              cssClass: 'primary',
+            },
+          ]}
+        />
       </IonContent>
     </IonPage>
   );
