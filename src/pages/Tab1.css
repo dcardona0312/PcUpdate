@@ -86,3 +86,50 @@ ion-input {
 ion-item {
     --border-width: 0 0 1px 0 !important;
 }
+/* Contenedor de la foto para centrarla y posicionar el botón de la cámara */
+.profile-photo-container {
+    position: relative;
+    width: 120px; /* Tamaño del círculo de la foto */
+    height: 120px;
+    margin: 20px auto 0; /* Centra el contenedor y añade margen superior */
+}
+
+/* Estilo para la imagen circular */
+.profile-photo {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%; /* Lo hace circular */
+    object-fit: cover; /* Asegura que la imagen se vea bien */
+    border: 3px solid var(--ion-color-primary); /* Borde primario */
+}
+
+/* Botón de la cámara superpuesto */
+.change-photo-button {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    --border-radius: 50%;
+    height: 35px;
+    width: 35px;
+    --padding-start: 0;
+    --padding-end: 0;
+}
+
+/* Ajuste del listado de perfil */
+.profile-list {
+    padding: 0; /* Remueve el padding por defecto de la lista si lo tiene */
+}
+
+/* Estilo para los IonItem dentro del perfil */
+.profile-list ion-item {
+    --padding-start: 0;
+    --padding-end: 0;
+}
+
+/* Estilo para el UID (se mantiene) */
+.uid-text {
+    font-size: 0.8em;
+    display: block;
+    word-break: break-all;
+    color: var(--ion-color-medium);
+}
