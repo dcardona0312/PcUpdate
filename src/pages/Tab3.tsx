@@ -221,7 +221,6 @@ const Tab3: React.FC = () => {
                     <IonInput 
                       value={nombre} 
                       onIonChange={(e) => setNombre(e.detail.value!)} 
-                      placeholder="Ej: DIEGO CARDONA"
                     />
                   </IonItem>
                 </IonCol>
@@ -236,7 +235,6 @@ const Tab3: React.FC = () => {
                     <IonInput 
                       value={serial} 
                       onIonChange={(e) => setSerial(e.detail.value!)} 
-                      placeholder="Ej: ABC123456789"
                     />
                   </IonItem>
                 </IonCol>
@@ -251,7 +249,6 @@ const Tab3: React.FC = () => {
                       value={infoAdicional} 
                       onIonChange={(e) => setInfoAdicional(e.detail.value!)}
                       rows={3}
-                      placeholder="Ej: Dell Optiplex"
                     />
                   </IonItem>
                 </IonCol>
